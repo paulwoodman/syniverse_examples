@@ -1,0 +1,5 @@
+---
+# Satellite vars for Playbook
+satellite_organization: ski_lab  
+capsuleurl: 192.168.95.177
+activation_key: RHEL8_AK 
