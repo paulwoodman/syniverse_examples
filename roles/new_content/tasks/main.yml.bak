@@ -1,0 +1,55 @@
+- hosts: localhost
+  gather_facts: true
+  tasks:
+
+
+    - name: "Add a production lifecycle environment"
+      redhat.satellite.lifecycle_environment:
+        username: "admin"
+        password: "redhat"
+        server_url: "https://satellite615.rydzinski.local"
+        name: "{{ ansible_date_time.date }}"
+        label: "{{ ansible_date_time.date }}"
+        organization: "ski_lab"
+        prior: "Library"
+        description: "new content"
+        state: "present"
+
+
+    - name: "Publish a content view and promote that version to Library & Dev, not idempotent"
+      redhat.satellite.content_view_version:
+        username: "admin"
+        password: "redhat"
+        server_url: "https://satellite615.rydzinski.local"
+        content_view: "RHEL8_BASECV"
+        organization: "ski_lab"
+        lifecycle_environments:
+          - Library
+          - "{{ ansible_date_time.date }}"
+
+    - name: "Create client activation key"
+      redhat.satellite.activation_key:
+        username: "admin"
+        password: "redhat"
+        server_url: "https://satellite615.rydzinski.local"
+        name: "{{ ansible_date_time.date }}"
+        organization: "ski_lab"
+        lifecycle_environment: "{{ ansible_date_time.date }}"
+        content_view: 'RHEL8_BASECV'
+
+   
+    - name: "Update Smart Proxy"
+      redhat.satellite.smart_proxy:
+        username: "admin"
+        password: "redhat"
+        server_url: "https://satellite615.rydzinski.local"
+        name: "{{ ansible_fqdn }}"
+        url: "https://{{ ansible_fqdn }}:9090"
+        download_policy: "on_demand"
+        lifecycle_environments:
+          - "{{ ansible_date_time.date }}"
+        organizations:
+          - "ski_lab"
+        locations:
+          - "Washington"
+        state: present

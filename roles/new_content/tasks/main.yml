@@ -1,0 +1,57 @@
+- name: print var
+  debug:
+    var: sat_url
+
+- name: "Add a new lifecycle environment"
+  redhat.satellite.lifecycle_environment:
+    username: "{{ sat_user }}"
+    password: "{{ sat_pass }}"
+    server_url: "{{ sat_url }}"
+    validate_certs: false
+    name: "{{ ansible_date_time.date }}"
+    label: "{{ ansible_date_time.date }}"
+    organization: "ski_lab"
+    prior: "Library"
+    description: "new content for {{ ansible_date_time.date }} "
+    state: "present"
+
+
+- name: "Publish a content view and promote that version to Library & Dev, not idempotent"
+  redhat.satellite.content_view_version:
+    username: "{{ sat_user }}"
+    password: "{{ sat_pass }}"
+    server_url: "{{ sat_url }}"
+    content_view: "{{ item }}"
+    organization: "ski_lab"
+    lifecycle_environments:
+      - Library
+      - "{{ ansible_date_time.date }}"
+  loop: "{{ cv_names }}"
+
+- name: "Create client activation key"
+  redhat.satellite.activation_key:
+    username: "{{ sat_user }}"
+    password: "{{ sat_pass }}"
+    server_url: "{{ sat_url }}"
+    name: "{{ item}}-{{ ansible_date_time.date }}"
+    organization: "ski_lab"
+    lifecycle_environment: "{{ ansible_date_time.date }}"
+    content_view: "{{ item }}"
+  loop: "{{ cv_names }}"
+
+
+- name: "Update Smart Proxy"
+  redhat.satellite.smart_proxy:
+    username: "{{ sat_user }}"
+    password: "{{ sat_pass }}"
+    server_url: "{{ sat_url }}"
+    name: "{{ ansible_fqdn }}"
+    url: "https://{{ ansible_fqdn }}:9090"
+    download_policy: "on_demand"
+    lifecycle_environments:
+      - "{{ ansible_date_time.date }}"
+    organizations:
+      - "ski_lab"
+    locations:
+      - "Washington"
+    state: present

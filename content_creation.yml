@@ -1,0 +1,10 @@
+---
+- name: Create new content for patching
+  hosts: localhost
+  gather_facts: True
+  become: yes
+  tasks:
+
+    - name: Create new content for patching
+      include_role:
+        name: new_content

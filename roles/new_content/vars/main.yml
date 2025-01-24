@@ -1,0 +1,8 @@
+---
+sat_user: admin
+sat_pass: redhat
+sat_url: "https://example.com"
+sat_org: ski_lab
+cv_names:
+  - RHEL8_BASECV
+  - RHEL8_HA_CV
