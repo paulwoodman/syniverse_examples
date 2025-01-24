@@ -1,6 +1,6 @@
 ---
 - name: Create new content for patching
-  hosts: localhost
+  hosts: all
   gather_facts: True
   become: yes
   tasks:
