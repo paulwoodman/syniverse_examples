@@ -1,57 +1,138 @@
-- name: print var
-  debug:
-    var: sat_url
+---
 
 - name: "Add a new lifecycle environment"
   redhat.satellite.lifecycle_environment:
-    username: "{{ sat_user }}"
-    password: "{{ sat_pass }}"
-    server_url: "{{ sat_url }}"
-    validate_certs: false
-    name: "{{ ansible_date_time.date }}"
-    label: "{{ ansible_date_time.date }}"
-    organization: "ski_lab"
-    prior: "Library"
-    description: "new content for {{ ansible_date_time.date }} "
-    state: "present"
+   username: "{{ sat_user }}"
+   password: "{{ sat_pass }}"
+   server_url: "{{ sat_url }}"
+   validate_certs: false
+   name: "{{ ansible_date_time.date }}"
+   label: "{{ ansible_date_time.date }}"
+   organization: "{{ sat_org }}"
+   prior: "Library"
+   description: "new content for {{ ansible_date_time.date }} "
+   state: "present"
 
 
-- name: "Publish a content view and promote that version to Library & Dev, not idempotent"
+- name: "Publish a content view and promote that version to Library & {{ ansible_date_time.date }}, not idempotent"
   redhat.satellite.content_view_version:
-    username: "{{ sat_user }}"
-    password: "{{ sat_pass }}"
-    server_url: "{{ sat_url }}"
-    content_view: "{{ item }}"
-    organization: "ski_lab"
-    lifecycle_environments:
-      - Library
-      - "{{ ansible_date_time.date }}"
+   username: "{{ sat_user }}"
+   password: "{{ sat_pass }}"
+   server_url: "{{ sat_url }}"
+   content_view: "{{ item }}"
+   organization: "{{ sat_org }}"
+   lifecycle_environments:
+     - Library
+     - "{{ ansible_date_time.date }}"
   loop: "{{ cv_names }}"
 
 - name: "Create client activation key"
   redhat.satellite.activation_key:
-    username: "{{ sat_user }}"
-    password: "{{ sat_pass }}"
-    server_url: "{{ sat_url }}"
-    name: "{{ item}}-{{ ansible_date_time.date }}"
-    organization: "ski_lab"
-    lifecycle_environment: "{{ ansible_date_time.date }}"
-    content_view: "{{ item }}"
+   username: "{{ sat_user }}"
+   password: "{{ sat_pass }}"
+   server_url: "{{ sat_url }}"
+   name: "{{ item}}-{{ ansible_date_time.date }}"
+   organization: "{{ sat_org }}"
+   lifecycle_environment: "{{ ansible_date_time.date }}"
+   content_view: "{{ item }}"
   loop: "{{ cv_names }}"
 
-
-- name: "Update Smart Proxy"
-  redhat.satellite.smart_proxy:
-    username: "{{ sat_user }}"
+- name: api call to get info on capsules
+  ansible.builtin.uri:
+    url: "{{ sat_url }}/katello/api/capsules"
+    method: GET
+    user: "{{ sat_user }}"
     password: "{{ sat_pass }}"
-    server_url: "{{ sat_url }}"
-    name: "{{ ansible_fqdn }}"
-    url: "https://{{ ansible_fqdn }}:9090"
-    download_policy: "on_demand"
-    lifecycle_environments:
-      - "{{ ansible_date_time.date }}"
-    organizations:
-      - "ski_lab"
-    locations:
-      - "Washington"
-    state: present
+    force_basic_auth: yes
+    validate_certs: no
+    headers:
+      Accept: "application/json"
+  register: capsules_data
+
+- name: Extract capsule names
+  set_fact:
+    capsule_id: "{{ capsule_id | default([]) + [item.id] }}"
+  loop: "{{ capsules_data.json.results }}"
+
+- name: api call to org data
+  ansible.builtin.uri:
+    url: "{{ sat_url }}/katello/api/organizations?search={{ sat_org }}"
+    method: GET
+    user: "{{ sat_user }}"
+    password: "{{ sat_pass }}"
+    force_basic_auth: yes
+    validate_certs: no
+    headers:
+      Accept: "application/json"
+  register: org_data
+
+- name: Get the id of the org
+  set_fact:
+    org_id: "{{ org_data.json.results[0].id }}"
+
+- name: "api call to lifecycle data  - {{ ansible_date_time.date }}"
+  ansible.builtin.uri:
+    url: "{{ sat_url }}/katello/api/organizations/{{ org_id }}/environments?search={{ ansible_date_time.date }}"
+    method: GET
+    user: "{{ sat_user }}"
+    password: "{{ sat_pass }}"
+    force_basic_auth: yes
+    validate_certs: no
+    headers:
+       Accept: "application/json"
+  register: lfe_data
+
+- name: get id of the lfe
+  set_fact:
+    lfe_id: "{{ lfe_data.json.results[0].id }}"
+
+- name: add new lifecycle environment to all capsule
+  ansible.builtin.uri:
+    url: "{{ sat_url }}/katello/api/capsules/{{ item }}/content/lifecycle_environments"
+    method: POST
+    user: "{{ sat_user }}"
+    password: "{{ sat_pass }}"
+    force_basic_auth: yes
+    validate_certs: no
+    headers:
+       Accept: "application/json"
+       Content-Type: "application/json"
+    body:
+      id: "{{ item }}"
+      environment_id: "{{ lfe_id }}"
+    body_format: json
+  loop: "{{ capsule_id | reject('equalto', 1) }}" # ignore Satellite capsule, assuming its id is 1
+
+- name: Sync capsules but limit to the new lifecycle only
+  ansible.builtin.uri:
+    url: "{{ sat_url }}/katello/api/capsules/{{ item }}/content/sync"
+    method: POST
+    user: "{{ sat_user }}"
+    password: "{{ sat_pass }}"
+    force_basic_auth: yes
+    validate_certs: no
+    headers:
+       Accept: "application/json"
+       Content-Type: "application/json"
+    body:
+      id: "{{ item }}"
+      environment_id: "{{ lfe_id }}"
+    body_format: json
+    status_code:
+      - 200
+      - 201
+      - 202
+  loop: "{{ capsule_id | reject('equalto', 1) }}" # ignore Satellite capsule, assuming its id is 1
+
+# To figure out if the module supports appending to lifecycles, as currently it deletes exsiting ones if not lisited below
+#- name: "Update Smart Proxy"
+#  redhat.satellite.smart_proxy:
+#    username: "{{ sat_user }}"
+#    password: "{{ sat_pass }}"
+#    server_url: "{{ sat_url }}"
+#    name: "{{ capsule }}"
+#    url: "https://{{ capsule }}:9090"
+#    download_policy: "on_demand"
+#    lifecycle_environments:
+#      - "{{ ansible_date_time.date }}"
+#    state: present
