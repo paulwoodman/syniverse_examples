@@ -1,0 +1,45 @@
+---
+# - name: Make API call to get data
+#   ansible.builtin.uri:
+#     url: "{{ sat_url }}/katello/api/environments/"
+#     method: GET
+#     user: "{{ sat_user }}"
+#     password: "{{ sat_pass }}"
+#     force_basic_auth: yes
+#     validate_certs: no
+#     headers:
+#       Accept: "application/json"
+#   register: api_response
+
+# - name: Show id, name, and created_at for each environment
+#   debug:
+#     msg: "ID: {{ item.id }}, Name: {{ item.name }}, Created At: {{ item.created_at }}"
+#   loop: "{{ api_response.json.results }}"
+
+- name: Make API call to get data
+  ansible.builtin.uri:
+    url: "{{ sat_url }}/katello/api/environments"
+    method: GET
+    user: "{{ sat_user }}"
+    password: "{{ sat_pass }}"
+    force_basic_auth: yes
+    validate_certs: no
+    headers:
+      Accept: "application/json"
+  register: api_response
+
+- name: Show every instance of created_at
+  debug:
+    var: "{{ item.created_at }}"
+  loop: "{{ api_response.json.results }}"
+
+# - set_fact:
+#     _thirty_days_ago_epoch: "{{ (ansible_date_time['epoch']|int)-(86400*30) }}"
+#     _sixty_days_ago_epoch: "{{ (ansible_date_time['epoch']|int)-(86400*60) }}"
+#     _ninety_days_ago_epoch: "{{ (ansible_date_time['epoch']|int)-(86400*90) }}"
+
+# - name: Displaying Older Than 30 Days
+#   debug:
+#     msg: "{{ '%Y-%m-%d %H:%M:%S' | strftime(item) }} has been longer than 30 days"
+#   with_items: "{{ example_epoch_times }}"
+#   when: (item/86400)+25569 < (_thirty_days_ago_epoch|int/86400)+25569

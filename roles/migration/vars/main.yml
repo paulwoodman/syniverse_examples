@@ -1,0 +1,3 @@
+# Satellite vars for Playbook
+satellite_organization: lab_name
+capsuleurl: examplecapsule.com

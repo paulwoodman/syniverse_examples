@@ -1,0 +1,12 @@
+---
+example_epoch_times:
+  - 1514764800
+  - 1519862400
+  - 1516253185
+  - 1511481600
+  - 1595548800
+  - 1517443199
+sat_user: admin
+sat_pass: redhat
+sat_url: https://satellite615.rydzinski.local
+sat_org: ski_lab

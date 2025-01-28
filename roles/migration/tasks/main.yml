@@ -1,0 +1,45 @@
+---
+
+- name: Get current repos pre migrations
+  ansible.builtin.command: yum repolist
+  register: pre_yum
+
+- name: Unregister the host
+  command: subscription-manager unregister
+
+- name: Clean subscription manager
+  command: subscription-manager clean
+
+- name: Remove the exsiting katello rpm package
+  ansible.builtin.yum:
+    name: katello-ca-consumer*
+    state: absent
+
+- name: Download & install katello rom from the capsule based on the hosts subnet
+  ansible.builtin.yum:
+    name: "https://{{ capsuleurl }}/pub/katello-ca-consumer-latest.noarch.rpm"
+    state: present
+    validate_certs: no
+    disable_gpg_check: yes
+
+- name: Register host using the exsiting activation against new capsule
+  community.general.redhat_subscription:
+    state: present
+    activationkey: "{{ activation_key }}"
+    org_id: "{{ satellite_organization }}"
+    force_register: true
+    server_insecure: yes
+
+- name: Get current repos post migrations
+  ansible.builtin.command: yum repolist
+  register: post_yum
+
+- name: Show the difference in json format
+  ansible.utils.fact_diff:
+    before: "{{ pre_yum.stdout_lines }}"
+    after: "{{ post_yum.stdout_lines }}"
+  register: repo_diff
+
+- name: print diff
+  debug:
+   var: repo_diff.diff_lines

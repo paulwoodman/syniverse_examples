@@ -1,0 +1,10 @@
+---
+- name: Clean up content
+  hosts: all
+  gather_facts: True
+  become: yes
+  tasks:
+
+    - name: Clean up lifecycles older than 3 months
+      include_role:
+        name: cleanup

@@ -1,0 +1,10 @@
+---
+- name: Migration to new Satellite
+  hosts: all
+  gather_facts: True
+  become: yes
+  tasks:
+
+    - name: migration
+      include_role:
+        name: migration
